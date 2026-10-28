@@ -260,6 +260,7 @@ _STR = {
         "en": "Fruit and slime mold regrow after being eaten",
     },
     "settings_plant_regen_secs": {"zh": "再生间隔（秒）", "en": "Regrow delay (s)"},
+    "settings_window_climb": {"zh": "猫会爬窗口边框", "en": "Cats climb window edges"},
     "settings_interact_section": {"zh": "交互", "en": "Interaction"},
     "settings_perf_section": {"zh": "性能", "en": "Performance"},
     "settings_sys_section": {"zh": "系统", "en": "System"},

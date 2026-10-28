@@ -430,6 +430,12 @@ class SettingsWindow(QWidget):
             w.cfg_plant_regen,
             lambda on: (w.set_plant_regen(on), self._write_state()),
         )
+        self._check(
+            v,
+            "settings_window_climb",
+            w.cfg_window_climb,
+            lambda on: (w.set_window_climb(on), self._write_state()),
+        )
         row = QHBoxLayout()
         row.addWidget(QLabel(t("settings_plant_regen_secs")))
         row.addStretch(1)

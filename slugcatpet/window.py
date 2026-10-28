@@ -176,6 +176,15 @@ class PetWindow(EffectsMixin, ItemHost, QWidget):
         self._shelter_timer = QTimer(self)
         self._shelter_timer.setInterval(tuning.RAIN_SHELTER_POLL_MS)
         self._shelter_timer.timeout.connect(self._poll_shelters)
+
+        self.cfg_window_climb = bool(self._params.get("window_climb", True))
+        self.window_bars = []  # 窗口边框生成的虚拟杆，见 world/windowbars.py
+        self._winbar_sig = ()
+        self._winbar_timer = QTimer(self)
+        self._winbar_timer.setInterval(tuning.RAIN_SHELTER_POLL_MS)
+        self._winbar_timer.timeout.connect(self._poll_window_bars)
+        if self.cfg_window_climb:
+            self._winbar_timer.start()
         self._ambient_shown = QRect()  # 屏上现有雪、雨的范围
         self._ambient_ns = 0
         self._ambient_tick = -1
@@ -837,6 +846,45 @@ class PetWindow(EffectsMixin, ItemHost, QWidget):
                 for x0, y0, x1, y1 in shelters.window_rects(hwnds)
             ]
         )
+
+    def screen_window_rects(self):
+        """屏上可见窗口的矩形，换算到逻辑坐标（窗口关掉或移动会跟着变）。"""
+        from .platform import shelters
+
+        dpr = self.devicePixelRatioF() or 1.0
+        ox, oy, s = self.x(), self.y(), self._scale or 1
+        hwnds = [self._hwnd] if self._hwnd else []
+        return [
+            ((x0 / dpr - ox) / s, (y0 / dpr - oy) / s, (x1 / dpr - ox) / s, (y1 / dpr - oy) / s)
+            for x0, y0, x1, y1 in shelters.window_rects(hwnds)
+        ]
+
+    def _poll_window_bars(self):
+        """刷新窗口虚拟杆；杆变了就让杆网重算。"""
+        if not self.cfg_window_climb:
+            if self.window_bars:
+                self.window_bars = []
+                self._winbar_sig = ()
+                self.geometry_version += 1
+            return
+        from .world import windowbars
+
+        bars = windowbars.build(self.screen_window_rects(), self._WL, self._HL)
+        sig = windowbars.signature(bars)
+        if sig != self._winbar_sig:
+            self._winbar_sig = sig
+            self.window_bars = bars
+            self.geometry_version += 1  # 让 planning/climbmap 的缓存重算
+
+    def set_window_climb(self, on):
+        """猫能不能爬窗口边框。"""
+        self.cfg_window_climb = self._params["window_climb"] = bool(on)
+        if on:
+            self._poll_window_bars()
+            self._winbar_timer.start()
+        else:
+            self._winbar_timer.stop()
+            self._poll_window_bars()
 
     def _rain_update(self):
         rain = self.rain

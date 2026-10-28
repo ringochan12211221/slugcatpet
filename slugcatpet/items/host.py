@@ -12,6 +12,7 @@ from PySide6.QtGui import QColor, QFont, QPainter, QPainterPath, QPen
 from ..control.hotkey import HK_PLACE_ESC, VK_ESCAPE
 from ..i18n import t
 from . import get as _kind, kinds
+from .base import CLIMBABLE
 from .state import ItemState
 
 PLACE_BANNER_BG = (0, 0, 0, 150)
@@ -63,6 +64,15 @@ class ItemHost:
 
     def items_affording(self, use):
         """提供某种用法的物品；共用存放属性且都提供该用法的几种（竖杆横杆）按放置顺序一起给。"""
+        return self._affording(use) + self._bars_for(use)
+
+    def _bars_for(self, use):
+        """窗口边框生成的虚拟杆（见 world/windowbars.py）；不是物品，只参加攀爬。"""
+        if use != CLIMBABLE:
+            return []
+        return list(getattr(self, "window_bars", ()))
+
+    def _affording(self, use):
         by_use = _g().by_use
         plan = by_use.get(use)
         if plan is None:
