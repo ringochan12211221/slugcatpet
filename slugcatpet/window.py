@@ -181,7 +181,7 @@ class PetWindow(EffectsMixin, ItemHost, QWidget):
         self.window_bars = []  # 窗口边框生成的虚拟杆，见 world/windowbars.py
         self._winbar_sig = ()
         self._winbar_timer = QTimer(self)
-        self._winbar_timer.setInterval(tuning.RAIN_SHELTER_POLL_MS)
+        self._winbar_timer.setInterval(tuning.WINDOW_BAR_POLL_MS)
         self._winbar_timer.timeout.connect(self._poll_window_bars)
         if self.cfg_window_climb:
             self._winbar_timer.start()
@@ -869,7 +869,8 @@ class PetWindow(EffectsMixin, ItemHost, QWidget):
             return
         from .world import windowbars
 
-        bars = windowbars.build(self.screen_window_rects(), self._WL, self._HL)
+        built = windowbars.build(self.screen_window_rects(), self._WL, self._HL)
+        bars = windowbars.merge(self.window_bars, built)
         sig = windowbars.signature(bars)
         if sig != self._winbar_sig:
             self._winbar_sig = sig

@@ -130,6 +130,7 @@ SNOW_VIGNETTE_MAX = 15
 # 雨（默认关）
 RAIN_AMOUNT = 0.4  # 默认雨量，0.5 以上露天会被推、砸晕
 RAIN_SHELTER_POLL_MS = 250  # 下雨时取挡雨窗口的间隔
+WINDOW_BAR_POLL_MS = 120  # 刷新窗口虚拟杆的间隔（窗口一动就要跟着变）
 RAIN_FPS = 30  # 雨层的出帧率
 RAIN_VOLUME = 0.6  # 默认雨声音量
 RAIN_ITEM_KICK_MAX = 3.0  # 物品单次被雨推的速度上限

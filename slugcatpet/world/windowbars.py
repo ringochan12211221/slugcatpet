@@ -4,16 +4,19 @@
 只要它们出现在 win.items_affording(CLIMBABLE) 里，planning/climbmap.py 的杆网寻路
 就会把窗口算进路线，于是**所有猫**都能顺着窗口侧边爬到顶上（不只是圣徒）。
 
-几何：
-- 左右侧 → 竖杆，从窗口顶一直落到地面（这样猫走过去就能抓到，不需要跳），grounded
+几何：**只贴真实可见的边框**，不凭空延长。
+- 左右侧 → 竖杆，只覆盖没被遮住的那一段（窗口顶到窗口底）；下沿离地 ≤ GROUND_TOL
+  （最大化窗口压着任务栏的情况）才接到地面，猫走过去就能抓，不用跳
 - 顶边、底边 → 悬空横杆；底边离地太近就不生成（和地面重复）
-- 窗口重叠：只保留没被更上层窗口盖住的那一段（最外缘）
+- 窗口重叠：按 Z 序（枚举顺序即 Z 序，越靠前越上层）逐层挖掉被盖住的段，只留最外缘
+- 屏幕外的部分直接丢掉，不把边挪到屏幕边界上——免得凭空多出一根杆
 """
 
 from __future__ import annotations
 
 MIN_SEG = 60.0  # 短于这个的边框段不算（猫站不住）
-BOTTOM_CLEAR = 40.0  # 底边离地不足这么多就不生成
+GROUND_TOL = 64.0  # 竖杆下沿离地这么近就接到地面（走过去就能抓）
+BOTTOM_CLEAR = 28.0  # 底边离地不足这么多就不生成（约一个任务栏高，压着任务栏的窗口也算）
 MAX_WINDOWS = 24  # 最多处理这么多个窗口
 MAX_BARS = 20
 TOL = 0.5
@@ -56,6 +59,11 @@ def _long_enough(ivs, min_len):
     return [(s, e) for s, e in ivs if e - s >= min_len]
 
 
+def _clip(ivs, lo, hi):
+    """裁到 [lo, hi] 里，只留够长的段（出屏的部分是真看不见，不是把边挪到边界上）。"""
+    return _long_enough([(max(s, lo), min(e, hi)) for s, e in ivs], MIN_SEG)
+
+
 def build(rects, WL, HL):
     """窗口矩形（已换算到逻辑坐标）→ 虚拟杆列表。rects 按 Z 序，越靠前越上层。"""
     out = []
@@ -67,9 +75,7 @@ def build(rects, WL, HL):
             continue
         if right < TOL or left > WL - TOL or bottom < TOL or top > HL - TOL:
             continue  # 整个在屏幕外
-        left, right = max(0.0, left), min(WL, right)
-        top, bottom = max(0.0, top), min(HL, bottom)
-        boxes.append((left, top, right, bottom))
+        boxes.append((left, top, right, bottom))  # 保留真实坐标，裁剪只发生在段上
 
     for i, (left, top, right, bottom) in enumerate(boxes):
         # 上层的窗口会把这条边盖住
@@ -90,24 +96,26 @@ def build(rects, WL, HL):
             if bl - TOL <= right <= br + TOL:
                 right_seg = _cut(right_seg, *ys)
 
-        top_seg = _long_enough(top_seg, MIN_SEG)
-        bot_seg = _long_enough(bot_seg, MIN_SEG)
-        left_seg = _long_enough(left_seg, MIN_SEG)
-        right_seg = _long_enough(right_seg, MIN_SEG)
+        # 出屏的部分不算：段裁掉，边的 x/y 仍用真实值
+        top_seg = _clip(top_seg, 0.0, WL)
+        bot_seg = _clip(bot_seg, 0.0, WL)
+        left_seg = _clip(left_seg, 0.0, HL)
+        right_seg = _clip(right_seg, 0.0, HL)
 
         for segs, x in ((left_seg, left), (right_seg, right)):
-            if not segs:
-                continue
-            y_top = min(s for s, _ in segs)
-            if HL - y_top < MIN_SEG:
-                continue
-            # 从地面一路到窗口顶：猫走过去就能抓到
-            out.append(EdgePole("vertical", x, y_top, x, HL, True))
-
-        for segs, y in ((top_seg, top),):
+            if x < -TOL or x > WL + TOL:
+                continue  # 这条侧边本身在屏幕外，没有可爬的边
             for s, e in segs:
-                out.append(EdgePole("horizontal", s, y, e, y, False))
-        if HL - bottom >= BOTTOM_CLEAR:
+                grounded = HL - e <= GROUND_TOL
+                end = HL if grounded else e
+                if end - s < MIN_SEG or HL - s < MIN_SEG:
+                    continue
+                out.append(EdgePole("vertical", x, s, x, end, grounded))
+
+        if -TOL <= top <= HL + TOL:
+            for s, e in top_seg:
+                out.append(EdgePole("horizontal", s, top, e, top, False))
+        if -TOL <= bottom <= HL + TOL and HL - bottom >= BOTTOM_CLEAR:
             for s, e in bot_seg:
                 out.append(EdgePole("horizontal", s, bottom, e, bottom, False))
 
@@ -119,3 +127,17 @@ def build(rects, WL, HL):
 
 def signature(bars):
     return tuple(p.key() for p in bars)
+
+
+def merge(old, new):
+    """重建时复用几何没变的那根杆对象：别的窗口移动不会让正在爬的猫脱手。"""
+    if not old:
+        return list(new)
+    pool = {}
+    for p in old:
+        pool.setdefault(p.key(), []).append(p)
+    out = []
+    for p in new:
+        same = pool.get(p.key())
+        out.append(same.pop(0) if same else p)
+    return out
