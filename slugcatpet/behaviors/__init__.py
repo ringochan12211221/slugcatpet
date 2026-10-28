@@ -8,6 +8,7 @@ from .anger import Anger, ArmStoneBehavior
 from .ascend import Ascend
 from .base import Behavior, mood_candidate, mood_params, needed_tags
 from .catch_breath import CatchBreathBehavior
+from .cursor_chase import CursorChase
 from .cursor_lick import CursorLick
 from .dodge_kill import DodgeKill
 from .fetch import Fetch, ForageBehavior
@@ -56,6 +57,7 @@ BUILTIN = (
     PerchBehavior,
     RainBehavior,
     HoldBehavior,
+    CursorChase,
 )
 
 REGISTRY: dict[str, type[Behavior]] = {cls.key: cls for cls in BUILTIN}

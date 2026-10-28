@@ -48,6 +48,17 @@ def _clamp_pets(n) -> int:
     return max(1, min(n, MAX_PETS))
 
 
+def _clamp_regen_secs(v) -> float:
+    """植物再生间隔（秒），2~60。"""
+    try:
+        v = float(v)
+    except (TypeError, ValueError):
+        return 8.0
+    if v != v:  # NaN
+        return 8.0
+    return max(2.0, min(v, 60.0))
+
+
 def _below_taskbar(area: QRect, geo: QRect) -> int:
     return max(0, (geo.y() + geo.height()) - (area.y() + area.height()))
 
@@ -191,6 +202,8 @@ class PetWindow(EffectsMixin, ItemHost, QWidget):
             float(self._params.get("water_depth", tuning.WATER_FULL_DEPTH)), 0.05, 0.95
         )  # 占窗口高的比例
         self.cfg_max_pets = _clamp_pets(self._params.get("max_pets", DEFAULT_MAX_PETS))
+        self.cfg_plant_regen = bool(self._params.get("plant_regen", True))
+        self.cfg_plant_regen_secs = _clamp_regen_secs(self._params.get("plant_regen_secs", 8.0))
         mode = self._params.get("fullscreen_mode", "hide")
         self.cfg_fullscreen_mode = mode if mode in ("hide", "sink") else "hide"
         self._pacer = FramePacer(self.display_hz())
@@ -1013,6 +1026,14 @@ class PetWindow(EffectsMixin, ItemHost, QWidget):
     def set_max_pets(self, n):
         """同时在场的上限；已经超出的不会被移走。"""
         self.cfg_max_pets = self._params["max_pets"] = _clamp_pets(n)
+
+    def set_plant_regen(self, on):
+        """果子、黏菌被猫吃掉后原地再长一个。"""
+        self.cfg_plant_regen = self._params["plant_regen"] = bool(on)
+
+    def set_plant_regen_secs(self, secs):
+        """再生间隔（秒）。"""
+        self.cfg_plant_regen_secs = self._params["plant_regen_secs"] = _clamp_regen_secs(secs)
 
     def add_pet(self, variant="saint"):
         """新增一只猫，满员返回 None。"""

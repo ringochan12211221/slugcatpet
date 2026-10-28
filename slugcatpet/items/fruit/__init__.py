@@ -7,6 +7,7 @@ from PySide6.QtGui import QColor, QLinearGradient, QPainter, QPainterPath, QPen,
 
 from ...rendering.graphics import _ang_from_up
 from ...rendering.primitives import draw_fruit, draw_rope
+from .. import regen
 from ..base import CARRYABLE, EDIBLE, ItemKind
 from ..state import ItemState
 from .model import PLACE_HANGING_FRAC, make_fruit
@@ -31,11 +32,17 @@ class FruitKind(ItemKind):
     grab_states = (ItemState.FREE, ItemState.HANGING)
     grab_rank = 2
     splash_states = (ItemState.FREE, ItemState.HANGING)
+    always_tick = True  # 没有果子时也要跑再生倒计时
 
     def make(self, win, lx, ly, seed):
         return make_fruit(lx, ly, win._HL, seed=seed, zerog=win.zerog_on)
 
+    def tick(self, win):
+        regen.step(win, self)
+        super().tick(win)
+
     def drop(self, win, f):
+        regen.forget(win, f)  # 手动移除的不再生
         f.stalk = None
         for pet in win.pets:
             pet.body.release(f)

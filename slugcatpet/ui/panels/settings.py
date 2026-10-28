@@ -146,6 +146,7 @@ class SettingsWindow(QWidget):
             (left, self._section_cats),
             (left, lambda v: build_skin_section(self, v)),
             (left, self._section_env),
+            (left, self._section_items),
             (right, self._section_interact),
             (right, self._section_perf),
             (right, self._section_sound),
@@ -419,6 +420,28 @@ class SettingsWindow(QWidget):
             chk.toggled.connect(slot)
         v.addWidget(chk)
         return chk
+
+    def _section_items(self, v):
+        v.addWidget(self._header(t("settings_items_section")))
+        w = self._window
+        self._check(
+            v,
+            "settings_plant_regen",
+            w.cfg_plant_regen,
+            lambda on: (w.set_plant_regen(on), self._write_state()),
+        )
+        row = QHBoxLayout()
+        row.addWidget(QLabel(t("settings_plant_regen_secs")))
+        row.addStretch(1)
+        self._range(
+            row,
+            2,
+            60,
+            round(w.cfg_plant_regen_secs),
+            lambda n: f"{n}s",
+            lambda n: w.set_plant_regen_secs(n),
+        )
+        v.addLayout(row)
 
     def _section_interact(self, v):
         v.addWidget(self._header(t("settings_interact_section")))

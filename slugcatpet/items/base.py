@@ -40,6 +40,7 @@ class ItemKind:
     mobile = True  # 会动：运动检测、出界夹回、重力、水位
     collides = False
     late_tick = False
+    always_tick = False  # 场上没有本类物体时也要 tick（植物再生倒计时靠它跑）
     geometry = False  # 增删会改变路径前提
     grab_pad = None
     grab_states = (ItemState.FREE,)

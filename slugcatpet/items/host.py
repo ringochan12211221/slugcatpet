@@ -330,7 +330,7 @@ class ItemHost:
         for k in _g().late if late else _g().early:
             if d is not None and d[0] is k:
                 self._step_item_drag(k)
-            if getattr(self, k.store):
+            if getattr(self, k.store) or k.always_tick:
                 k.tick(self)
 
     def _colliding_items(self):

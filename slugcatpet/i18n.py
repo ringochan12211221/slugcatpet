@@ -254,6 +254,12 @@ _STR = {
     "settings_rain_amount": {"zh": "雨量", "en": "Rainfall"},
     "settings_rain_volume": {"zh": "雨声", "en": "Rain sound"},
     "settings_show_hud": {"zh": "显示状态面板", "en": "Show status panel"},
+    "settings_items_section": {"zh": "物品", "en": "Items"},
+    "settings_plant_regen": {
+        "zh": "果子、黏菌被吃掉后会再长",
+        "en": "Fruit and slime mold regrow after being eaten",
+    },
+    "settings_plant_regen_secs": {"zh": "再生间隔（秒）", "en": "Regrow delay (s)"},
     "settings_interact_section": {"zh": "交互", "en": "Interaction"},
     "settings_perf_section": {"zh": "性能", "en": "Performance"},
     "settings_sys_section": {"zh": "系统", "en": "System"},

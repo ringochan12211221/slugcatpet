@@ -11,6 +11,7 @@ from ...core.gfxmath import _hsl2rgb
 from ...core.units import clampf, inv_lerp, lerp
 from ...rendering.graphics import _ang_from_up
 from ...rendering.primitives import blit, draw_fruit
+from .. import regen
 from ..base import CARRYABLE, EDIBLE, ItemKind
 from ..state import ItemState
 from .model import STUCK_GAP, TENDRIL_JAG_K, SlimeMold, _dirvec, _lerp_map
@@ -90,6 +91,11 @@ class SlimeMoldKind(ItemKind):
     grab_states = (ItemState.FREE, ItemState.HANGING)
     grab_rank = 0
     splash_states = (ItemState.FREE, ItemState.HANGING)
+    always_tick = True  # 没有黏菌时也要跑再生倒计时
+
+    def tick(self, win):
+        regen.step(win, self)
+        super().tick(win)
 
     def make(self, win, lx, ly, seed):
         sx, sy, bx, by = _edge_anchor(win, lx, ly)
@@ -101,6 +107,7 @@ class SlimeMoldKind(ItemKind):
         win._place_preview = SlimeMold(0.0, 0.0, seed=win.item_seed(self))
 
     def drop(self, win, m):
+        regen.forget(win, m)  # 手动移除的不再生
         for pet in win.pets:
             pet.body.release(m)
         m.state = ItemState.EATEN
