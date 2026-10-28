@@ -1,0 +1,151 @@
+"""计划执行器：按候选顺序跑控制器，失败就换方案，失败太多就放弃并进冷却。"""
+
+from __future__ import annotations
+
+from .. import tuning
+from .reach import DONE, GIVEUP, HOLD, HOLDING, MODE_STAY, MODE_TOUCH, RUNNING
+
+
+class PlanExecutor:
+    """update() 返回 running / holding / giveup；mode 决定用 touch 还是 stay 候选。碰没碰到、抓没抓到由调用方每 tick 自己判断。"""
+
+    def __init__(self, pet, planner, goal, mode=MODE_TOUCH):
+        self.pet = pet
+        self.planner = planner
+        self.goal = goal
+        self.mode = mode
+        self._fails = {}  # ability_key -> 失败次数
+        self._exhausted = set()  # 失败次数到上限、不再用的方案
+        self._schemes_burned = 0
+        self._active = None
+        self._controller = None
+        self._step_ticks = 0
+        self._step_budget = 0.0
+        self._start_best = 0.0
+        self._replans = 0
+        self._snap_wv = None
+        self._snap_zerog = None
+        self._given_up = False
+        self._holding = False  # 上一 tick 是 HOLD，这一 tick 不查世界变化
+
+    def update(self):
+        if self._given_up:
+            return GIVEUP
+        if not self.goal.valid():
+            # 目标没了：停下，不进冷却
+            self._abort_controller()
+            self._given_up = True
+            return GIVEUP
+        if self._controller is not None and not self._holding and self._structural_changed():
+            adapt = getattr(self._controller, "on_geometry", None)
+            same_gravity = getattr(self.pet.body, "zerog", False) == self._snap_zerog
+            if same_gravity and adapt is not None and adapt():
+                self._resnapshot()
+            else:
+                self._replans += 1
+                if self._replans > tuning.PLAN_REPLAN_BUDGET:
+                    return self._give_up()
+                self._abort_controller()
+        if self._controller is None and not self._plan():
+            return self._give_up()
+
+        status = self._controller.update()
+        self._step_ticks += 1
+        if status == DONE and self.mode == MODE_STAY:
+            status = HOLD
+        self._holding = status == HOLD
+        if status == HOLD:
+            # 待着时持续更新快照，免得世界变化被当成计划失效
+            self._step_ticks = 0
+            self._resnapshot()
+            return HOLDING
+        if status == RUNNING:
+            if self._step_ticks < self._step_budget:
+                return RUNNING
+            if self._best_key() == self._active.ability_key:
+                self._step_ticks = 0
+                return RUNNING
+            self._abort_controller()
+            if not self._count_fail():
+                return GIVEUP
+            if not self._plan():
+                return self._give_up()
+            return RUNNING
+
+        self._abort_controller()
+        remaining = self._filtered()
+        new_best = remaining[0].time_est if remaining else None
+        progressed = new_best is not None and self._start_best - new_best >= tuning.PLAN_PROGRESS_MIN
+        if not progressed and not self._count_fail():
+            return GIVEUP
+        if not self._plan():
+            return self._give_up()
+        return RUNNING
+
+    def cancel(self):
+        self._abort_controller()
+        self._given_up = True
+
+    def _structural_changed(self):
+        if self._geometry_version() != self._snap_wv:
+            return True
+        return getattr(self.pet.body, "zerog", False) != self._snap_zerog
+
+    def _resnapshot(self):
+        self._snap_wv = self._geometry_version()
+        self._snap_zerog = getattr(self.pet.body, "zerog", False)
+
+    def _best_key(self):
+        cands = self._filtered()
+        return cands[0].ability_key if cands else None
+
+    def _geometry_version(self):
+        return getattr(self.pet, "geometry_version", 0)
+
+    def _candidates(self):
+        if self.mode == MODE_STAY:
+            return self.planner.stay_candidates(self.goal)
+        return self.planner.touch_candidates(self.goal)
+
+    def _filtered(self):
+        return [c for c in self._candidates() if c.ability_key not in self._exhausted]
+
+    def _plan(self):
+        cands = self._filtered()
+        if not cands:
+            return False
+        self._active = cands[0]
+        self._controller = self._active.make_controller()
+        self._step_ticks = 0
+        self._step_budget = max(
+            tuning.PLAN_STEP_TIMEOUT_MIN, self._active.time_est * tuning.PLAN_STEP_TIMEOUT_K
+        )
+        self._start_best = self._active.time_est
+        self._resnapshot()
+        return True
+
+    def _count_fail(self):
+        """记一次失败。一个方案失败 PLAN_FAILS_PER_SCHEME 次就换下一个，用掉 PLAN_SCHEMES_MAX 个就放弃并返回 False。"""
+        key = self._active.ability_key
+        n = self._fails.get(key, 0) + 1
+        self._fails[key] = n
+        if n >= tuning.PLAN_FAILS_PER_SCHEME:
+            self._exhausted.add(key)
+            self._schemes_burned += 1
+            if self._schemes_burned >= tuning.PLAN_SCHEMES_MAX:
+                self._give_up()
+                return False
+        return True
+
+    def _abort_controller(self):
+        c = self._controller
+        self._controller = None
+        self._holding = False
+        if c is not None and hasattr(c, "cancel"):
+            c.cancel()
+
+    def _give_up(self):
+        self._abort_controller()
+        self._given_up = True
+        self.planner.on_giveup(self.goal)
+        return GIVEUP
