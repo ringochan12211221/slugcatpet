@@ -1448,7 +1448,12 @@ class PetWindow(EffectsMixin, ItemHost, QWidget):
         if e.button() == Qt.MouseButton.RightButton:
             pos = self.to_logical(e.position().x(), e.position().y())
             from .control.mouse import hit_test, GRAB_PAD
+            from .items.orb import TOY, orb_at, set_mode
 
+            orb = orb_at(self, pos)  # 点在光萤上：切回玩具型
+            if orb is not None:
+                set_mode(orb, TOY)
+                return
             for pet in self.pets:
                 if pet.behavior is not None and pet.behavior.blocks_interaction():
                     continue
@@ -1471,6 +1476,21 @@ class PetWindow(EffectsMixin, ItemHost, QWidget):
                     break
             if not grabbed:
                 self._begin_item_drag(pos)
+
+    def mouseDoubleClickEvent(self, e):
+        """双击光萤：切成跟随型，跟着光标走。"""
+        if self._place_mode or not self.pets or self._freeze:
+            return
+        if e.button() != Qt.MouseButton.LeftButton:
+            return
+        from .items.orb import FOLLOW, orb_at, set_mode
+
+        pos = self.to_logical(e.position().x(), e.position().y())
+        orb = orb_at(self, pos)
+        if orb is not None:
+            set_mode(orb, FOLLOW)
+            return
+        super().mouseDoubleClickEvent(e)
 
     def keyPressEvent(self, e):
         if self._place_mode and e.key() == Qt.Key.Key_Escape:
