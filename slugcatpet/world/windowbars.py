@@ -23,7 +23,10 @@ TOL = 0.5
 
 
 class EdgePole:
-    """一根窗口边生成的虚拟杆；字段和 items/pole 的 Pole 对齐，够 climbmap 用。"""
+    """一根窗口边生成的虚拟杆；接口和 items/pole 的 Pole 对齐（缺一个属性就会在规划里抛异常）。
+
+    竖杆的端点顺序同 Pole：ax/ay 是着地那端，bx/by 是顶端（即 top_y）。
+    """
 
     __slots__ = ("kind", "ax", "ay", "bx", "by", "state", "grounded", "has_been_climbed")
 
@@ -34,6 +37,14 @@ class EdgePole:
         self.state = "free"
         self.grounded = bool(grounded)
         self.has_been_climbed = False
+
+    @property
+    def x(self) -> float:
+        return self.bx
+
+    @property
+    def top_y(self) -> float:
+        return self.by
 
     def key(self):
         return (self.kind, round(self.ax, 1), round(self.ay, 1), round(self.bx, 1), round(self.by, 1))
@@ -105,12 +116,12 @@ def build(rects, WL, HL):
         for segs, x in ((left_seg, left), (right_seg, right)):
             if x < -TOL or x > WL + TOL:
                 continue  # 这条侧边本身在屏幕外，没有可爬的边
-            for s, e in segs:
+            for s, e in segs:  # s=顶，e=底
                 grounded = HL - e <= GROUND_TOL
-                end = HL if grounded else e
-                if end - s < MIN_SEG or HL - s < MIN_SEG:
+                foot = HL if grounded else e
+                if foot - s < MIN_SEG or HL - s < MIN_SEG:
                     continue
-                out.append(EdgePole("vertical", x, s, x, end, grounded))
+                out.append(EdgePole("vertical", x, foot, x, s, grounded))  # ay 着地端，by 顶端
 
         if -TOL <= top <= HL + TOL:
             for s, e in top_seg:
