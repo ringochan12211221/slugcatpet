@@ -408,7 +408,9 @@ class PetWindow(EffectsMixin, ItemHost, QWidget):
         if region is None:
             self.update()
         else:
-            self.update(region)
+            for r in region:
+                if not r.isEmpty():
+                    self.update(r)
 
     def _set_mode(self, fast, ambient=None):
         """快档优先跟 vblank，不可用时用精确定时器；慢档用粗定时器，只有雪或雨在动时按它的帧率。
@@ -488,12 +490,12 @@ class PetWindow(EffectsMixin, ItemHost, QWidget):
                 sp.refresh_fps()
 
     def _update_region(self):
-        """本帧范围 ∪ 屏上现有范围（None=整窗）。"""
+        """本帧矩形 ∪ 屏上现有矩形（None=整窗）；矩形列表而不是包围盒，少刷很多屏。"""
         self._fx_active = self._fx_now()
         self._record()
         if self._shown is None:
             return None
-        return self._painted.united(self._shown)
+        return self._painted + self._shown
 
     def _fx_now(self):
         """只用于定时器保持高帧率，不影响重绘范围。"""
@@ -1370,15 +1372,15 @@ class PetWindow(EffectsMixin, ItemHost, QWidget):
         return "rain" if self.rain.shows else None
 
     def _ambient_frame(self):
-        """雪按物理 tick、雨按 RAIN_FPS 定格，返回要刷新的范围（含旧范围）；不到时刻返回空。"""
+        """雪按 SNOW_FPS、雨按 RAIN_FPS 定格，返回要刷新的范围（含旧范围）；不到时刻返回空列表。"""
         kind = self._ambient_kind()
         if kind is None and self._ambient_shown.isEmpty():
-            return QRect()
+            return []
         now = self._clock.nsecsElapsed()
-        if kind == "snow" and self.world_tick == self._ambient_tick:
-            return QRect()
+        if kind == "snow" and now - self._ambient_ns < 0.9e9 / tuning.SNOW_FPS:
+            return []
         if kind == "rain" and now - self._ambient_ns < 0.9e9 / tuning.RAIN_FPS:
-            return QRect()
+            return []
         self._ambient_ns, self._ambient_tick = now, self.world_tick
         self._snow.snapshot()
         self.rain.snapshot(self._ts)
@@ -1388,9 +1390,9 @@ class PetWindow(EffectsMixin, ItemHost, QWidget):
             rect = self.rain.paint_rect(self._scale)
         else:
             rect = QRect()
-        out = rect.united(self._ambient_shown)
+        out = [rect, self._ambient_shown]
         self._ambient_shown = rect
-        return out
+        return [r for r in out if not r.isEmpty()]
 
     def _record(self):
         """记下调用列表与精确范围（逻辑坐标），不光栅化；雪、雨不入列表。"""
@@ -1402,13 +1404,13 @@ class PetWindow(EffectsMixin, ItemHost, QWidget):
         finally:
             r.end()
         self._ops = r.ops
-        scene = r.device_rect()
+        scene = r.device_rects()
         static, sig = r.static_rect(), self._static_sig()
         if sig != self._static_last[0]:
-            scene = scene.united(static).united(self._static_last[1])  # 静态内容变了，新旧位置都刷
+            scene = scene + [static, self._static_last[1]]  # 静态内容变了，新旧位置都刷
         self._static_last = (sig, static)
         self._scene_painted = scene
-        self._painted = scene.united(self._ambient_frame())
+        self._painted = scene + self._ambient_frame()
         self._ops_key = (self._frame_no, self._ts)
 
     def paintEvent(self, _):

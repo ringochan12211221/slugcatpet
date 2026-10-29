@@ -293,7 +293,9 @@ def _check_painted_bounds(win, img):
     ys, xs = np.nonzero(a)
     if not len(xs):
         return
-    r = win._painted.united(win._static_last[1])  # 静态内容须在它记下的范围内
+    from slugcatpet.rendering.display_list import union_rect
+
+    r = union_rect(win._painted + [win._static_last[1]])  # 静态内容须在它记下的范围内
     if not (
         r.left() <= xs.min() and xs.max() <= r.right() and r.top() <= ys.min() and ys.max() <= r.bottom()
     ):

@@ -22,10 +22,52 @@ from PySide6.QtGui import (
 
 _AA = 2.0  # 抗锯齿 / 取整外扩（设备 px）
 _EVERYTHING = QRectF(-1e7, -1e7, 2e7, 2e7)
+_RECT_CAP = 16  # 每帧交给 Qt 的矩形条数上限，超了就合并
+_GAPS = (64, 160, 400, 1000)  # 合并时逐轮放宽的横向间隙（设备 px）
+
+_EVERY_RECT = _EVERYTHING.toAlignedRect()
 
 
 def _num(a):
     return isinstance(a, Real)
+
+
+def _aligned(d):
+    return d.adjusted(-_AA, -_AA, _AA, _AA).toAlignedRect()
+
+
+def union_rect(rects) -> QRect:
+    """一堆矩形的包围盒（设备坐标）。"""
+    out = QRect()
+    for r in rects:
+        if r is None or r.isEmpty():
+            continue
+        out = out.united(r if isinstance(r, QRect) else _aligned(r))
+    return out
+
+
+def merge_rects(rects, cap=_RECT_CAP):
+    """把一堆矩形并成尽量少的几个，只合并靠得近的，别把分散的猫并成一个大包围盒。
+
+    按左边排序后贪心：后一个的左边界落在前一个右边界 + gap 之内就并掉。
+    间隙逐轮放宽，直到条数不超过 cap。
+    """
+    rs = [r if isinstance(r, QRect) else _aligned(r) for r in rects]
+    rs = [r for r in rs if r.isValid() and not r.isEmpty()]
+    if len(rs) <= cap:
+        return rs
+    for gap in _GAPS:
+        rs.sort(key=lambda r: r.left())
+        out = []
+        for r in rs:
+            if out and r.left() <= out[-1].right() + gap:
+                out[-1] = out[-1].united(r)
+            else:
+                out.append(r)
+        rs = out
+        if len(rs) <= cap:
+            break
+    return rs
 
 
 def _pix_size(img):
@@ -111,7 +153,7 @@ class FrameRecorder(QPainter):
         if font is not None:
             QPainter.setFont(self, font)  # 与窗口 painter 初始字体一致，不入列表
         self.ops = []
-        self._b = None  # 已映射到设备坐标的范围（未含 AA 外扩）
+        self._rs = []  # 每条绘制的范围（设备坐标，未含 AA 外扩），刷屏时按需合并
         self._sb = None  # 静态内容的范围，不算进每帧的刷新范围
         self._static = 0
         self._everything = False
@@ -136,19 +178,24 @@ class FrameRecorder(QPainter):
         if self._static:
             self._sb = d if self._sb is None else self._sb.united(d)
         else:
-            self._b = d if self._b is None else self._b.united(d)
+            self._rs.append(d)
 
     def static_rect(self) -> QRect:
         if self._sb is None:
             return QRect()
-        return self._sb.adjusted(-_AA, -_AA, _AA, _AA).toAlignedRect()
+        return _aligned(self._sb)
 
     def device_rect(self) -> QRect:
+        """包围盒。只用于「有没有画东西」之类判断，刷屏请用 device_rects。"""
         if self._everything:
-            return _EVERYTHING.toAlignedRect()
-        if self._b is None:
-            return QRect()
-        return self._b.adjusted(-_AA, -_AA, _AA, _AA).toAlignedRect()
+            return _EVERY_RECT
+        return union_rect(self._rs)
+
+    def device_rects(self):
+        """本帧要刷的矩形列表（设备坐标，含 AA 外扩），已合并到 _RECT_CAP 条以内。"""
+        if self._everything:
+            return [_EVERY_RECT]
+        return merge_rects(self._rs)
 
     # 热路径：blit() 的 drawPixmap(QPointF, QPixmap)
     def drawPixmap(self, *a, _m=QPainter.drawPixmap):
@@ -174,7 +221,7 @@ class FrameRecorder(QPainter):
         if self._static:
             self._sb = d if self._sb is None else self._sb.united(d)
         else:
-            self._b = d if self._b is None else self._b.united(d)
+            self._rs.append(d)
         self.ops.append((_sprite, (t, pt, pm)))
 
 
