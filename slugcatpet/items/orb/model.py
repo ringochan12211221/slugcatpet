@@ -21,10 +21,13 @@ BUOYANCY = 1.05  # 比水轻，浮在水面
 WATER_FRICTION = 0.94
 
 REST_VEL_EPS = 0.35
-BOB_SPEED = 0.055  # 悬浮摆动的角速度（rad/tick）
+# 注意：phase 每 tick +1.0，下面几个角速度都要乘上去才对；
+# 直接 sin(phase) 会是 6~10Hz 的抽搐。0.05 左右 ≈ 2~3 秒一个来回。
+BOB_SPEED = 0.055  # 悬浮摆动的角速度（rad/tick），约 2.9 秒一个来回
 BOB_AMP = 2.2  # 上下浮动幅度（px）
-DRIFT_SPEED = 0.012  # 静止时的横向漂移角速度
+DRIFT_SPEED = 0.012  # 静止时的横向漂移角速度（乘 6 后约 2.2 秒一个来回）
 DRIFT_AMP = 7.0  # 横向漂移幅度（px）
+GLOW_SPEED = 0.05  # 呼吸明暗的角速度，约 3.1 秒一个来回
 
 EXIT_FLING_SPEED = 8.0
 
@@ -147,15 +150,15 @@ class Orb:
         moving = math.hypot(self.vx, self.vy) > REST_VEL_EPS
         if moving or self.state != ItemState.FREE:
             return (0.0, 0.0)
-        t = self.phase
+        t = self.phase * 1.0 + self.seed * 0.37  # 每颗错开，一群光萤不同步
         return (
             math.sin(t * DRIFT_SPEED * 6.0) * DRIFT_AMP * 0.25,
-            math.sin(t) * BOB_AMP,
+            math.sin(t * BOB_SPEED) * BOB_AMP,
         )
 
     def glow_at(self) -> float:
         """0.75–1.0 的呼吸亮度。"""
-        return 0.875 + 0.125 * math.sin(self.phase * 1.7)
+        return 0.875 + 0.125 * math.sin(self.phase * GLOW_SPEED + self.seed * 0.11)
 
     def collision_chunks(self):
         self.collide_with_objects = False
