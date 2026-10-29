@@ -49,6 +49,7 @@ class Orb:
     dead = False
     edible = False
     throwable = True
+    playful = True  # 猫会去玩它（见 behaviors/orb_play）
     pierces = False
     stops_weapons = False
     carcass = False

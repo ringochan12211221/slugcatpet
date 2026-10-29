@@ -30,6 +30,7 @@ from .wall_climb import WallClimb
 from .warmth import Warmth
 from .zerog_lick import ZeroGLick
 from .spear_climb import SpearClimbBehavior
+from .orb_play import OrbPlayBehavior
 
 # 顺序即挂载顺序（影响心情抽签、规则与砸晕收尾的先后）；新模块加在末尾
 BUILTIN = (
@@ -60,6 +61,7 @@ BUILTIN = (
     HoldBehavior,
     CursorChase,
     SpearClimbBehavior,
+    OrbPlayBehavior,
 )
 
 REGISTRY: dict[str, type[Behavior]] = {cls.key: cls for cls in BUILTIN}
