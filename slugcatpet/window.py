@@ -1450,7 +1450,7 @@ class PetWindow(EffectsMixin, ItemHost, QWidget):
             from .control.mouse import hit_test, GRAB_PAD
             from .items.orb import TOY, orb_at, set_mode
 
-            orb = orb_at(self, pos)  # 点在光萤上：切回玩具型
+            orb = orb_at(self, pos)  # 点在珍珠上：切回玩具型
             if orb is not None:
                 set_mode(orb, TOY)
                 return
@@ -1478,7 +1478,7 @@ class PetWindow(EffectsMixin, ItemHost, QWidget):
                 self._begin_item_drag(pos)
 
     def mouseDoubleClickEvent(self, e):
-        """双击光萤：切成跟随型，跟着光标走。"""
+        """双击珍珠：切成跟随型，跟着光标走。"""
         if self._place_mode or not self.pets or self._freeze:
             return
         if e.button() != Qt.MouseButton.LeftButton:

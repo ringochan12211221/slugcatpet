@@ -1,9 +1,9 @@
-"""玩光萤：闲着的时候凑过去拍一爪、或者叼起来颠两下扔出去；光萤跟着光标跑时猫会在后面追它。
+"""玩珍珠：闲着的时候凑过去拍一爪、或者叼起来颠两下扔出去；珍珠跟着光标跑时猫会在后面追它。
 
-三种玩法按光萤当下的形态和当时的情况选：
-- 光萤是跟随型（跟着光标）→ 追过去扑一下
-- 光萤是玩具型、猫有空手 → 走过去叼起来，玩一会儿再抛出去
-- 光萤是玩具型、手上没空 → 走过去一巴掌拍飞
+三种玩法按珍珠当下的形态和当时的情况选：
+- 珍珠是跟随型（跟着光标）→ 追过去扑一下
+- 珍珠是玩具型、猫有空手 → 走过去叼起来，玩一会儿再抛出去
+- 珍珠是玩具型、手上没空 → 走过去一巴掌拍飞
 拍飞 / 扔出去之后会看一会儿，兴致还在就再玩一轮，最多三轮。
 """
 
@@ -24,11 +24,11 @@ BAT_VX = 6.5  # 拍出去的横向速度
 BAT_VY = -5.0  # 顺手往上一挑
 CHASE_NEAR = 46.0  # 追到这么近就扑
 CHASE_P = 0.06  # 追上后每 tick 扑一下的概率
-HOP_DX = 70.0  # 横向离这么近就原地蹦一下够它（光萤常飘在高处，够不着就跳着玩）
+HOP_DX = 70.0  # 横向离这么近就原地蹦一下够它（跟随型的珍珠飘在高处，够不着就跳着玩）
 HOP_P = 0.03  # 每 tick 起跳的概率
 MAX_HOPS = 3  # 蹦够这么多下就玩够了
 HOLD_LO, HOLD_HI = 40, 110  # 叼着玩多久才扔
-TOSS_SPEED = 5.0  # 抛出去的横向速度（光萤很轻，别扔太猛）
+TOSS_SPEED = 5.0  # 抛出去的横向速度（珍珠小又轻，别扔太猛）
 TOSS_UP = 4.5  # 抛出去的上挑
 PICK_CARRY = 0.45  # 有空手时选择「叼起来扔」而不是「拍飞」的概率
 WATCH_TICKS = 34  # 出手后看一会儿
@@ -39,7 +39,7 @@ SETUP_TIMEOUT = 1100  # 整个行为的看门狗
 
 
 def _playable(fsm, o) -> bool:
-    """这颗光萤眼下能不能去玩。"""
+    """这颗珍珠眼下能不能去玩。"""
     return (
         getattr(o, "playful", False)
         and o.state == ItemState.FREE
@@ -82,7 +82,7 @@ class OrbPlayer:
         return o is not None and o.state == ItemState.FREE and o.held_by_hand is None
 
     def _grab_dist(self, o, side):
-        """上身或拿东西的手到光萤边缘的距离（光萤在地上，光看头到它的距离是够不着的）。"""
+        """上身或拿东西的手到珍珠边缘的距离（珍珠在地上，光看头到它的距离是够不着的）。"""
         c0 = self.body.chunk0
         d = math.hypot(c0.x - o.x, c0.y - o.y)
         hx, hy = self.body._carry_pos(side)
@@ -206,7 +206,7 @@ class OrbPlayer:
                 return "done"
             self.t = 0
             return "running"
-        # 光萤多半飘在够不着的高度：跑到它下面蹦一下够它
+        # 跟随型的珍珠飘在够不着的高度：跑到它下面蹦一下够它
         if b.on_floor() and abs(dx) <= HOP_DX and self.rng.random() < HOP_P:
             b.facing = 1 if dx >= 0 else -1
             b.request_jump("stand")
@@ -288,13 +288,13 @@ class OrbPlay(State):
 class OrbPlayBehavior(Behavior):
     key = "orb_play"
     mood = "orb_play"
-    title = {"zh": "玩光萤", "en": "Play with glow orbs"}
+    title = {"zh": "玩珍珠", "en": "Play with pearls"}
     doc = (
-        "闲着的时候去玩光萤：凑过去一爪拍飞，或者叼起来颠两下再抛出去；"
-        "光萤切成跟随型跟着光标跑时，猫会在后面追它扑它。玩两三轮就走开。"
+        "闲着的时候去玩珍珠：凑过去一爪拍飞，或者叼起来颠两下再抛出去；"
+        "珍珠切成跟随型跟着光标跑时，猫会在后面追它扑它。玩两三轮就走开。"
     )
     requires = (THROWABLE,)
-    # 新鲜度回升得快些（0.0009）：光萤是摆在那儿的玩具，闲着的时候该常去玩玩
+    # 新鲜度回升得快些（0.0009）：珍珠是摆在那儿的玩具，闲着的时候该常去玩玩
     params = mood_params(1.00, 0.70, 0.28, 0.35, 0.0040, 0.00090)
 
     def mount(self, fsm):

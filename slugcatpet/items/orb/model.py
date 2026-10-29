@@ -1,33 +1,41 @@
-"""光萤的物理：很轻、落得慢、弹一下就漂，会自己微微上下浮。
+"""珍珠的物理：和石头同构（单个质点 + 墙地碰撞），不参与物体间碰撞。
 
-和石头同构（单个质点 + 墙地碰撞），但不参与物体间碰撞，水面几乎漂着。
+尺寸照原作：原作珍珠本体是 11 格直径的小球，桌宠同样 20px 一格，所以 rad = 5.5 就是原尺寸。
+手感比原来的光萤沉：落得干脆、落地几乎不弹；水里会慢慢沉下去。
+但还是留了一点悬浮（原作里珍珠也有浮着的时候），只是幅度小得多。
 """
 
 from __future__ import annotations
 
 import math
+import random
 
 from ...core.chunkphys import aabb_wall_collide, apply_water
 from ...core.units import clampf
 from ..state import ItemState
 
-RAD = 7.0
-MASS = 0.03
-GRAVITY = 0.22  # y↓，比石头轻得多，慢慢飘下来
-AIR_FRICTION = 0.985
-BOUNCE = 0.52
-SURFACE_FRICTION = 0.55
-BUOYANCY = 1.05  # 比水轻，浮在水面
+RAD = 5.5  # 直径 11 = 原作珍珠的大小
+MASS = 0.12
+GRAVITY = 0.50  # y↓，比石头轻一点，但落得干脆
+AIR_FRICTION = 0.990
+BOUNCE = 0.30  # 珍珠不怎么弹
+SURFACE_FRICTION = 0.50
+BUOYANCY = 0.95  # 比水重，会慢慢沉
 WATER_FRICTION = 0.94
 
 REST_VEL_EPS = 0.35
 # 注意：phase 每 tick +1.0，下面几个角速度都要乘上去才对；
 # 直接 sin(phase) 会是 6~10Hz 的抽搐。0.05 左右 ≈ 2~3 秒一个来回。
 BOB_SPEED = 0.055  # 悬浮摆动的角速度（rad/tick），约 2.9 秒一个来回
-BOB_AMP = 2.2  # 上下浮动幅度（px）
+BOB_AMP = 0.9  # 上下浮动幅度（px）——珍珠比原来的光萤沉，浮得很轻
 DRIFT_SPEED = 0.012  # 静止时的横向漂移角速度（乘 6 后约 2.2 秒一个来回）
-DRIFT_AMP = 7.0  # 横向漂移幅度（px）
+DRIFT_AMP = 4.0  # 横向漂移幅度（px）
 GLOW_SPEED = 0.05  # 呼吸明暗的角速度，约 3.1 秒一个来回
+
+# 偶尔闪一下的光：这才是原作"闪闪发光的球体"里那个闪，贴图本身没有高光
+SPARK_TICKS = 7
+SPARK_WAIT_LO = 320  # 8 秒
+SPARK_WAIT_HI = 1600  # 40 秒
 
 EXIT_FLING_SPEED = 8.0
 
@@ -78,6 +86,10 @@ class Orb:
         "last_rotation",
         "spin",
         "vibrate",
+        "pal_i",
+        "spark",
+        "spark_wait",
+        "_rng",
         "fling",
         "thrown_by_cat",
         "spare_cursor",
@@ -100,7 +112,7 @@ class Orb:
         "behind",
     )
 
-    def __init__(self, x: float, y: float, seed: int = 0):
+    def __init__(self, x: float, y: float, seed: int = 0, pal_i: int = 0):
         self.x = self.last_x = float(x)
         self.y = self.last_y = float(y)
         self.rest_x = float(x)
@@ -121,6 +133,10 @@ class Orb:
         self.last_rotation = 0.0
         self.spin = 0.0
         self.vibrate = 0
+        self.pal_i = int(pal_i)  # 配色索引，见 palette.py
+        self._rng = random.Random(0x9E37 ^ (int(seed) * 2654435761 & 0xFFFFFFFF))
+        self.spark = 0  # >0 表示正在闪，倒数
+        self.spark_wait = self._rng.randint(SPARK_WAIT_LO, SPARK_WAIT_HI)
         self.fling = False
         self.thrown_by_cat = False
         self.spare_cursor = False
@@ -198,6 +214,7 @@ class Orb:
 
     def step(self, WL: float, HL: float) -> None:
         self.phase += 1.0
+        self._tick_spark()
         if self.state in (ItemState.MOUSE, ItemState.CARRIED):
             self._contact_floor = False
             return
@@ -237,6 +254,24 @@ class Orb:
 
     def _collide(self, WL: float, HL: float) -> None:
         aabb_wall_collide(self, WL, HL, impact=self._impact_cb)
+
+    def _tick_spark(self) -> None:
+        """偶尔闪一下：原作珍珠的"闪闪发光"就是这个，不是贴图上的高光。"""
+        if self.spark > 0:
+            self.spark -= 1
+            return
+        if self.state != ItemState.FREE:
+            return
+        self.spark_wait -= 1
+        if self.spark_wait <= 0:
+            self.spark = SPARK_TICKS
+            self.spark_wait = self._rng.randint(SPARK_WAIT_LO, SPARK_WAIT_HI)
+
+    def spark_progress(self) -> float:
+        """正在闪的话返回 0（刚亮起）→ 1（已消失）；没在闪返回 -1。"""
+        if self.spark <= 0:
+            return -1.0
+        return 1.0 - self.spark / SPARK_TICKS
 
     def _follow(self, WL: float, HL: float) -> None:
         """跟随型：绕着光标慢慢转，不落地也不受重力。"""

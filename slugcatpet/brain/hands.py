@@ -10,7 +10,7 @@ from .skills import motor
 
 EAT_LATER = "eat_later"  # 留着待会儿吃
 WEAPON = "weapon"  # 拿着防身 / 生气时扔
-TOY = "toy"  # 拿着玩（光萤之类），不防身也不吃
+TOY = "toy"  # 拿着玩（珍珠之类），不防身也不吃
 DROP_ORDER = (TOY, EAT_LATER, WEAPON)  # 腾手时先放下谁
 
 PUT_DOWN_FORBID = 240  # 放下后多久不再把它当目标
