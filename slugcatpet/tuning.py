@@ -295,3 +295,8 @@ MUSIC_SWAY_OFF_TICKS = (120, 200)  # 歇 3~5 秒
 MUSIC_SWAY_EASE = 0.045  # 淡入淡出：每 tick 向目标靠近的比例
 MUSIC_SWAY_ACT_BASE = 0.4  # 性格活跃度 → 幅度：base + gain × activity
 MUSIC_SWAY_ACT_GAIN = 1.2  # activity 0.4 → 0.88 倍；0.95 → 1.54 倍
+
+# 光标劫持被左键打断：抢光标时鼠标是真被 ClipCursor 锁住的，打游戏时尤其要命，
+# 所以只要左键一按就立刻还回去。冷却是为了不变成"点一下松一下"的拉锯。
+CURSOR_BREAK_LBUTTON = True
+CURSOR_BREAK_COOLDOWN = 200  # 打断后这么久不再抢光标（tick，200 = 5 秒）

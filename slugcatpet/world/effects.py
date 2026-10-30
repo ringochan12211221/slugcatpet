@@ -23,7 +23,7 @@ class EffectsMixin:
 
     def start_cursor_hijack(self, logical_x, logical_y, lock_ticks=None, knock_v=(0.0, 0.0)):
         """劫持光标；设置里关了抢光标则返回 None。knock_v 为逻辑 px/tick 的弹开初速。"""
-        if not self.cfg_cursor_hijack:
+        if not self.cfg_cursor_hijack or getattr(self, "_cursor_break_cd", 0) > 0:
             return None
         from ..platform.cursorfx import CursorHijack
 
@@ -45,7 +45,7 @@ class EffectsMixin:
         return self.cursor_hijack
 
     def start_cursor_hold(self, logical_x, logical_y, max_ticks):
-        if not self.cfg_cursor_hijack:
+        if not self.cfg_cursor_hijack or getattr(self, "_cursor_break_cd", 0) > 0:
             return None
         from ..platform.cursorfx import CursorHijack
 

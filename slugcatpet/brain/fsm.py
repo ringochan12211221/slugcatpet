@@ -221,6 +221,19 @@ class BehaviorFSM:
             return False
         return self.grab.begin(cursor)
 
+    def cursor_break(self):
+        """光标劫持被用户点断了。
+
+        超度这类独占状态免疫左键（on_press 直接返回 False），所以只能由窗口层通知它收尾：
+        走 kill_break 把特效和 hover 都清掉，再按落地/在杆上/在空中回到待机。
+        只靠 win.cursor_hijack 判活的那些状态（骑矛、扑咬、抢东西）自己会发现劫持没了。
+        """
+        if self.state not in self._interaction_blockers:
+            return False
+        self._states[self.state].kill_break()
+        self.settle()
+        return True
+
     def on_release(self):
         self.grab.end()
 

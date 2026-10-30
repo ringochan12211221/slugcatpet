@@ -211,6 +211,12 @@ class EnvironmentWatcher(QObject):
 
     def _enter_fullscreen(self):
         self._fullscreen = True
+        # 收起前先把光标还回去：冻上之后 tick 停了，CursorHijack 就没机会自己解锁，
+        # 鼠标会一直被 ClipCursor 锁着。
+        try:
+            self._pet.stop_cursor_hijack()
+        except Exception:
+            pass
         self._vis_snapshot = [self._is_visible(w) for w in self._windows]
         for w in self._windows:
             try:

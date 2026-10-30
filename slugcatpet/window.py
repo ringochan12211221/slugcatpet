@@ -136,6 +136,8 @@ class PetWindow(EffectsMixin, ItemHost, QWidget):
         self.bubbles = []
         self._bubble_rng = random.Random(0xB0BB1E)
         self.cursor_hijack = None
+        self._cursor_break_cd = 0  # 左键打断后的冷却：这段时间内不再抢光标
+        self._hj_fresh = True  # 劫持刚出现：先丢掉那一下"上次调用后按过"
         self._hud = None
         self._pets_changed_cb = None
         self._open_settings_cb = None
@@ -758,6 +760,7 @@ class PetWindow(EffectsMixin, ItemHost, QWidget):
         if abs(self._shake[0]) + abs(self._shake[1]) < SHAKE_EPS:
             self._shake[0] = self._shake[1] = 0.0
         cur = self.cursor_logical()
+        self._tick_cursor_break()
 
         # 躲杀期间周期性抬窗到弹窗之上
         if self._any_kill_dialog():
@@ -791,6 +794,42 @@ class PetWindow(EffectsMixin, ItemHost, QWidget):
         self._rain_update()
 
         self._update_fx()
+
+    def _tick_cursor_break(self):
+        """左键一按就把光标还回去。
+
+        抢光标时 CursorHijack 用 ClipCursor 把鼠标锁在 1×1 像素里，还把系统光标换成
+        "忙"——打游戏时这一下就是半分钟动不了。这里每 tick 轮询一次左键，按了立刻松手。
+        不装全局鼠标钩子：钩子一旦卡住整个系统的鼠标都会跟着卡。
+        """
+        if self._cursor_break_cd > 0:
+            self._cursor_break_cd -= 1
+        if not tuning.CURSOR_BREAK_LBUTTON:
+            return
+        if self.cursor_hijack is None:
+            self._hj_fresh = True
+            return
+        if self._hj_fresh:
+            # 劫持刚起来的这一 tick：把"上次调用后按过"消费掉，免得劫持开始前那一下
+            # 点击被算进来、当场就松手。
+            self._hj_fresh = False
+            from .platform.cursorfx import lbutton_down
+
+            lbutton_down(include_recent=False)
+            return
+        from .platform.cursorfx import lbutton_down
+
+        if lbutton_down():
+            self._break_cursor_hijack()
+
+    def _break_cursor_hijack(self):
+        """松手：解 ClipCursor、还原系统光标，再让发起它的行为收尾。"""
+        self.stop_cursor_hijack()
+        self._cursor_break_cd = int(tuning.CURSOR_BREAK_COOLDOWN)
+        for pet in self.pets:
+            fsm = getattr(pet, "behavior", None)
+            if fsm is not None:
+                fsm.cursor_break()
 
     def _music_playing(self) -> bool:
         """有没有别的程序在放声音；检测不可用或没开时一律 False。"""
@@ -1533,6 +1572,9 @@ class PetWindow(EffectsMixin, ItemHost, QWidget):
                     return
             return
         if e.button() == Qt.MouseButton.LeftButton:
+            if self.cursor_hijack is not None:  # 抢着光标呢：这一下算"还给我"，不做别的
+                self._break_cursor_hijack()
+                return
             pos = self.to_logical(e.position().x(), e.position().y())
             if self.held_item_at(pos):
                 self._begin_item_drag(pos)  # 手里的东西挨着猫身，先于抓猫

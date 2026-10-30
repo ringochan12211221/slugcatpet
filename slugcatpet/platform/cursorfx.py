@@ -86,6 +86,27 @@ else:
         pass
 
 
+_VK_LBUTTON = 0x01
+
+
+def lbutton_down(include_recent=True) -> bool:
+    """左键是不是按着。
+
+    用 GetAsyncKeyState 轮询，不装全局鼠标钩子（钩子一旦卡住会拖慢整个系统的鼠标）。
+    include_recent=True 时连「上次调用之后按过一下」也算，这样比一个 tick（25ms）还短的
+    点击也不会漏。注意：这个「按过」标记每次调用都会清掉，所以调用本身就是一次消费。
+    """
+    if not _IS_WIN:
+        return False
+    try:
+        st = _user32.GetAsyncKeyState(_VK_LBUTTON) & 0xFFFF
+    except Exception:
+        return False
+    if st & 0x8000:
+        return True
+    return bool(include_recent and (st & 0x0001))
+
+
 def restore_cursors():
     try:
         _restore_cursors()
