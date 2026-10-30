@@ -215,6 +215,13 @@ class PetWindow(EffectsMixin, ItemHost, QWidget):
         self.cfg_plant_regen_secs = _clamp_regen_secs(self._params.get("plant_regen_secs", 8.0))
         mode = self._params.get("fullscreen_mode", "hide")
         self.cfg_fullscreen_mode = mode if mode in ("hide", "sink") else "hide"
+        # 听歌摇摆
+        self.cfg_music_sway = bool(self._params.get("music_sway", tuning.MUSIC_SWAY_ON))
+        self.cfg_music_bpm = clampf(float(self._params.get("music_bpm", tuning.MUSIC_SWAY_BPM)), 30.0, 220.0)
+        self.cfg_music_amp = clampf(float(self._params.get("music_amp", 1.0)), 0.0, 2.0)
+        block = self._params.get("music_blocklist")
+        self.cfg_music_blocklist = [str(b) for b in block] if isinstance(block, (list, tuple)) else None
+        self.mediawatch = None  # 由 main.py 注入 MediaWatcher
         self._pacer = FramePacer(self.display_hz())
         self._paint_ns = 0  # 上次 paintEvent 耗时，并入下一帧统计
         self._calc_intervals()
@@ -768,6 +775,7 @@ class PetWindow(EffectsMixin, ItemHost, QWidget):
         self.social.tick()
         for pet in self.pets:
             pet.step(cur, cycle_prog)
+        self._tick_music_sway()
         self._plan_budget.run(self.pets)
 
         self._tick_items()
@@ -783,6 +791,53 @@ class PetWindow(EffectsMixin, ItemHost, QWidget):
         self._rain_update()
 
         self._update_fx()
+
+    def _music_playing(self) -> bool:
+        """有没有别的程序在放声音；检测不可用或没开时一律 False。"""
+        w = self.mediawatch
+        return w is not None and bool(w.playing)
+
+    def _can_groove(self, pet) -> bool:
+        """只有站着发呆时才摇：一动起来就淡出，不跟任何动作打架。"""
+        if pet.hidden:
+            return False
+        b = pet.body
+        if b.dead or b.stun > 0 or b.sleeping:
+            return False
+        if b.zerog or b.swimming:
+            return False
+        if b.bodyMode != "Stand" or b.is_moving():
+            return False
+        return True
+
+    def _sway_amp(self, pet) -> float:
+        """摇摆幅度：用户幅度 × 性格活跃度。Rivulet(0.95) 摇得欢，Saint(0.4) 摇得含蓄。"""
+        act = getattr(getattr(pet, "cat", None), "personality", None)
+        act = getattr(act, "activity", 0.5)
+        return self.cfg_music_amp * (tuning.MUSIC_SWAY_ACT_BASE + tuning.MUSIC_SWAY_ACT_GAIN * act)
+
+    def _tick_music_sway(self):
+        """听歌摇摆：只改画出来的姿态，不进物理。摇一阵歇一阵，免得像节拍器。"""
+        playing = self.cfg_music_sway and self._music_playing()
+        for pet in self.pets:
+            b = pet.body
+            if not playing:
+                b.groove_on = False
+                b.groove_left = 0
+            elif self._can_groove(pet):
+                # 只有站得住才走间歇计时；动起来时计时冻结，站定后接着原来的节奏
+                b.groove_left -= 1
+                if b.groove_left <= 0:
+                    b.groove_on = not b.groove_on
+                    lo, hi = tuning.MUSIC_SWAY_ON_TICKS if b.groove_on else tuning.MUSIC_SWAY_OFF_TICKS
+                    b.groove_left = pet._sway_rng.randint(lo, hi)
+            want = self._sway_amp(pet) if (playing and b.groove_on and self._can_groove(pet)) else 0.0
+            b.groove += (want - b.groove) * tuning.MUSIC_SWAY_EASE
+            if b.groove < 0.004:
+                b.groove = 0.0
+            if b.groove > 0.0:
+                # 相位按拍推进，每 2 拍换一次方向（96 BPM ≈ 1.25 秒一个来回）
+                b.groove_phase += self.cfg_music_bpm / 60.0 / 40.0
 
     def _env_changed(self, kind, on):
         for fn in self.env_listeners:
@@ -1085,6 +1140,21 @@ class PetWindow(EffectsMixin, ItemHost, QWidget):
     def set_plant_regen_secs(self, secs):
         """再生间隔（秒）。"""
         self.cfg_plant_regen_secs = self._params["plant_regen_secs"] = _clamp_regen_secs(secs)
+
+    def set_music_sway(self, on):
+        """听歌摇摆：系统里有别的程序在放声音时，猫站着发呆会跟着晃。"""
+        self.cfg_music_sway = self._params["music_sway"] = bool(on)
+        if not on:
+            for pet in self.pets:  # 立刻收住，不然要等淡出
+                pet.body.groove = 0.0
+
+    def set_music_bpm(self, bpm):
+        """摇摆的固定拍子。读不到真实节拍，只能给个拍子让它像在跟着晃。"""
+        self.cfg_music_bpm = self._params["music_bpm"] = clampf(float(bpm), 30.0, 220.0)
+
+    def set_music_amp(self, amp):
+        """摇摆幅度倍率（再乘性格活跃度）。"""
+        self.cfg_music_amp = self._params["music_amp"] = clampf(float(amp), 0.0, 2.0)
 
     def add_pet(self, variant="saint"):
         """新增一只猫，满员返回 None。"""

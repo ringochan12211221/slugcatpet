@@ -168,6 +168,12 @@ class SlugcatBody:
         self.walk_bob_amp = 0.0
         self.walk_bob_freq = 1.0
 
+        # 听歌摇摆：groove 是 0~1 的强度，渲染层读它决定摆多少；不进物理
+        self.groove = 0.0
+        self.groove_phase = 0.0  # 摇摆相位（tick），每 tick 推进
+        self.groove_on = False  # 间歇：这一轮是"在摇"还是"歇一下"
+        self.groove_left = 0  # 间歇：本轮还剩多少 tick
+
         self.breath = 0.0
         self.last_breath = 0.0
         self.sleeping = False  # 睡眠态：呼吸周期恒 80

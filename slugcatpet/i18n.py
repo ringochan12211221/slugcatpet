@@ -263,6 +263,13 @@ _STR = {
         "en": "Fruit and slime mold regrow after being eaten",
     },
     "settings_plant_regen_secs": {"zh": "再生间隔（秒）", "en": "Regrow delay (s)"},
+    "settings_music_sway_section": {"zh": "听歌摇摆", "en": "Music sway"},
+    "settings_music_sway": {
+        "zh": "有别的程序在放声音时，猫站着会跟着晃",
+        "en": "Cats sway along when another app is playing sound",
+    },
+    "settings_music_bpm": {"zh": "摇摆拍子", "en": "Sway tempo (BPM)"},
+    "settings_music_amp": {"zh": "摇摆幅度", "en": "Sway amount"},
     "settings_window_climb": {"zh": "猫会爬窗口边框", "en": "Cats climb window edges"},
     "settings_interact_section": {"zh": "交互", "en": "Interaction"},
     "settings_perf_section": {"zh": "性能", "en": "Performance"},

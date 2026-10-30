@@ -664,6 +664,8 @@ class SlugcatGraphics(GraphicsDrawMixin):
         """插值并叠上呼吸偏移后的头心与头角度（相对躯干中点，未计睡眠蜷缩）。"""
         hox, hoy = getattr(self, "_breath_head_off", (0.0, 0.0))
         cox, coy = getattr(self, "_breath_chest_off", (0.0, 0.0))
+        sox, soy = getattr(self, "_sway_head_off", (0.0, 0.0))
+        hox, hoy = hox + sox, hoy + soy
         hx = _lerp(self.head.lx, self.head.x, ts) + hox
         hy = _lerp(self.head.ly, self.head.y, ts) + hoy
         d0x = _lerp(self._last_draw0[0], self.draw0[0], ts) + cox

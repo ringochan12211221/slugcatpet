@@ -148,6 +148,7 @@ class SettingsWindow(QWidget):
             (left, self._section_env),
             (left, self._section_items),
             (right, self._section_interact),
+            (right, self._section_music_sway),
             (right, self._section_perf),
             (right, self._section_sound),
             (right, self._section_system),
@@ -479,6 +480,40 @@ class SettingsWindow(QWidget):
         btn = QPushButton(t("settings_keybinds_btn"))
         btn.clicked.connect(self._on_keybinds)
         self._row(v, "settings_keybinds", btn)
+
+    def _section_music_sway(self, v):
+        v.addWidget(self._header(t("settings_music_sway_section")))
+        w = self._window
+        self._check(
+            v,
+            "settings_music_sway",
+            w.cfg_music_sway,
+            lambda on: (w.set_music_sway(on), self._write_state()),
+        )
+        row = QHBoxLayout()
+        row.addWidget(QLabel(t("settings_music_bpm")))
+        row.addStretch(1)
+        self._range(
+            row,
+            40,
+            180,
+            round(w.cfg_music_bpm),
+            lambda n: f"{n}",
+            lambda n: (w.set_music_bpm(n), self._write_state()),
+        )
+        v.addLayout(row)
+        row = QHBoxLayout()
+        row.addWidget(QLabel(t("settings_music_amp")))
+        row.addStretch(1)
+        self._range(
+            row,
+            0,
+            200,
+            round(w.cfg_music_amp * 100),
+            lambda n: f"{n}%",
+            lambda n: (w.set_music_amp(n / 100.0), self._write_state()),
+        )
+        v.addLayout(row)
 
     def _section_perf(self, v):
         v.addWidget(self._header(t("settings_perf_section")))

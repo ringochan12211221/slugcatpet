@@ -426,6 +426,14 @@ def main():
     pet._refresh_top_cb = envwatch.force_top
     app._envwatch = envwatch
 
+    # 媒体监视：系统里有没有别的程序在放声音，用来让猫跟着音乐摇
+    from .platform.mediawatch import MediaWatcher
+
+    mediawatch = MediaWatcher(blocklist=pet.cfg_music_blocklist or ())
+    mediawatch.start()
+    pet.mediawatch = mediawatch
+    app._mediawatch = mediawatch
+
     hidden_ui = []  # 定格时收起的界面窗口
 
     def _on_freeze(on):

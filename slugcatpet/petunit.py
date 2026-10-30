@@ -53,6 +53,7 @@ class PetUnit:
         self._reincarnate_pending = False
         self._cramp_delay = -1  # 抽筋间隔，<0 时可再抽
         self._cold_rng = random.Random(0xC01D + index)
+        self._sway_rng = random.Random(0x5A17 ^ (index * 0x9E37))  # 听歌摇摆的间歇时长
         self._kill_dialog = None
         self._kill_cancel_by_self = False
         self._kill_dismiss_silent = False  # 静默关闭，不扣好感
@@ -94,6 +95,7 @@ class PetUnit:
         _hips_half_w = w.atlas.source_size("base", "HipsA")[0] / 2.0
         _crawl_draw_raise = 4.0
         self.body.crawl_sink = _cp.RAD1 - _hips_half_w + _crawl_draw_raise
+        self.body.groove_phase = self.index * 0.37  # 多只猫错开，别同步摇
         margin = self.layout_data.canvas_w / 2.0
         self.body.walk_min = margin
         self.body.walk_max = w._WL - margin

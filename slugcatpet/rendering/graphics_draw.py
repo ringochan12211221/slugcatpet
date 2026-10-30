@@ -7,6 +7,7 @@ import math
 from PySide6.QtCore import QPointF, Qt
 from PySide6.QtGui import QColor, QPainter, QPainterPath, QPen, QPolygonF
 
+from .. import tuning
 from ..core.units import clampf
 from ..core.vecmath import _ang_from_up, _rot
 from ..core.gfxmath import _lerp, SHOULDER_OFF_Y, ARM_DIV, ARM_MAX
@@ -85,6 +86,23 @@ class GraphicsDrawMixin:
             if 30.0 < ang < 150.0:
                 return "R"
         return None
+
+    def _music_sway(self, ts=1.0):
+        """听歌摇摆的躯干倾角（度）。顺带把头部的摆/点头存进 _sway_head_off。
+
+        groove 是 0~1 的强度（已含用户幅度和性格系数），0 时整体归零，一点开销都没有。
+        读不到真实节拍，这里是固定拍子的正弦，只求观感像在跟着晃。
+        """
+        g = getattr(self.body, "groove", 0.0)
+        if g <= 0.0:
+            self._sway_head_off = (0.0, 0.0)
+            return 0.0
+        swing = math.sin(getattr(self.body, "groove_phase", 0.0) * math.pi)
+        self._sway_head_off = (
+            swing * tuning.MUSIC_SWAY_HEAD_X * g,
+            -abs(swing) * tuning.MUSIC_SWAY_HEAD_Y * g,
+        )
+        return swing * tuning.MUSIC_SWAY_DEG * g
 
     def _draw_tail(self, p, ts=1.0, atlas=None):
         segs = self.tail_segs
@@ -288,7 +306,7 @@ class GraphicsDrawMixin:
         breath_bob = _lerp(0.5, 1.0, fatigue) * breath * (1.0 - upright)
         body_x = chest_x
         body_y = chest_y + 4.0 * sleep - breath_bob  # y↓ 睡眠下沉+起伏
-        body_rot = body_axis
+        body_rot = body_axis + self._music_sway(ts)
         body_sx = self.body.stats.body_width + _lerp(_lerp(-0.05, 0.05, breath) * upright, 0.15, sleep)
         body_sy = 1.0  # 竖直呼吸走 body_y，不缩 Y
         side = self._motion_side(d0x, d0y, d1x, d1y)

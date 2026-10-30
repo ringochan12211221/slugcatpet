@@ -280,3 +280,16 @@ CURSOR_DWELL_BAND_HI = 0.75  # 高度带下沿
 CURSOR_DWELL_TOL = 6.0  # 每 tick 位移小于此（px）算没动
 CURSOR_DWELL_TICKS = 200  # 光标在带内停这么久算驻留
 CURSOR_SPEED_RELEASE = 12.0  # 光标平滑速度超过此（px/tick）算甩开
+
+# 听歌摇摆：多数机器不暴露音频电平（本机实测 E_NOINTERFACE），读不到真实节拍，
+# 所以按固定拍子走，观感上像在跟着晃。幅度再乘性格 activity。
+MUSIC_SWAY_ON = True
+MUSIC_SWAY_BPM = 96.0  # 固定拍子
+MUSIC_SWAY_DEG = 12.0  # 躯干左右最大倾角（度）
+MUSIC_SWAY_HEAD_X = 2.6  # 头跟着摆的横移（px）
+MUSIC_SWAY_HEAD_Y = 1.8  # 点头的上下幅度（px）
+MUSIC_SWAY_ON_TICKS = (320, 480)  # 摇 8~12 秒（40 tick/s）
+MUSIC_SWAY_OFF_TICKS = (120, 200)  # 歇 3~5 秒
+MUSIC_SWAY_EASE = 0.045  # 淡入淡出：每 tick 向目标靠近的比例
+MUSIC_SWAY_ACT_BASE = 0.4  # 性格活跃度 → 幅度：base + gain × activity
+MUSIC_SWAY_ACT_GAIN = 1.2  # activity 0.4 → 0.88 倍；0.95 → 1.54 倍
