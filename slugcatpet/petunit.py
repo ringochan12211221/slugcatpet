@@ -54,6 +54,16 @@ class PetUnit:
         self._cramp_delay = -1  # 抽筋间隔，<0 时可再抽
         self._cold_rng = random.Random(0xC01D + index)
         self._sway_rng = random.Random(0x5A17 ^ (index * 0x9E37))  # 听歌摇摆的间歇时长
+        self._pet_rng = random.Random(0x9E7A ^ (index * 0x51ED))  # 被摸：腻了的冷却抖动
+        # 被摸的计数状态：来回搓了几下、当前方向滑了多远
+        self.pet_dir = 0  # 上一 tick 的滑动方向（+1 向下 / -1 向上 / 0 还没起头）
+        self.pet_run = 0.0  # 当前方向上累计滑过的距离（px）
+        self.pet_strokes = 0  # 已完成的来回次数
+        self.pet_off = 0  # 光标离开猫身多久了（tick）
+        self.pet_bore = 0  # 这一轮享受持续多久了（tick）
+        self.pet_gain = 0.0  # 这一轮已经涨了多少好感
+        self.pet_cool = 0  # 腻了之后的冷却（tick），冷却里再摸没反应
+
         self._kill_dialog = None
         self._kill_cancel_by_self = False
         self._kill_dismiss_silent = False  # 静默关闭，不扣好感

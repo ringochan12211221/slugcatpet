@@ -300,3 +300,27 @@ MUSIC_SWAY_ACT_GAIN = 1.2  # activity 0.4 → 0.88 倍；0.95 → 1.54 倍
 # 所以只要左键一按就立刻还回去。冷却是为了不变成"点一下松一下"的拉锯。
 CURSOR_BREAK_LBUTTON = True
 CURSOR_BREAK_COOLDOWN = 200  # 打断后这么久不再抢光标（tick，200 = 5 秒）
+
+# 被摸（享受）：光标在猫身上上下来回搓，搓够了就眯眼晃起来；摸久了会腻，抖一下躲开。
+# 只在猫站着发呆或趴着时受理，不进物理、不打断别的行为。
+PET_ON = True
+PET_PAD = 6.0  # 命中猫身的外扩（逻辑 px），跟穿透判定用同一个
+PET_STROKE_MIN = 7.0  # 一个方向上至少滑这么远（px）才算划了一下，路过的抖动不算
+PET_TURN_GAP = 20  # 光标离开猫身这么久（tick）没回来，计数清零
+PET_STROKES_NEED = 3  # 上下来回搓这么多次开始享受（约 1 秒）
+PET_EASE = 0.06  # 享受强度淡入淡出：每 tick 向目标靠近的比例
+PET_BPM = 52.0  # 享受摇晃的节奏，比听歌（96）慢一半，慢悠悠的
+PET_SHIFT_X = 3.4  # 重心左右移（px）——享受主要靠这个
+PET_SHIFT_Y = 1.0  # 上下弹（px）
+PET_TILT_DEG = 2.0  # 躯干倾角（度）。别调大：静态歪着看着像驼背，不像在晃
+PET_HEAD_X = 1.4  # 头跟着摆的横移（px）
+PET_HEAD_LIFT = 2.2  # 抬头（px，向上）。享受时会微微仰头
+PET_BLINK = 4  # 享受时维持的闭眼帧计数（>0 走 face_blink，也就是眯着眼）
+PET_BORE_TICKS = 480  # 享受累计这么久就腻（12 秒）
+PET_BORE_DECAY = 2  # 不摸的时候余韵每 tick 退这么多，摸摸停停也能累计到腻
+PET_TEMPER_EVERY = 60  # 享受时每隔这么久涨一次好感（tick）
+PET_TEMPER_GAIN = 0.03  # 每次涨的好感（舔一次光标是 0.10，比那个慢）
+PET_TEMPER_CAP = 0.18  # 一轮享受最多涨这么多，别让人一直搓着刷好感
+PET_BORE_TEMPER = -0.04  # 摸腻了掉的好感
+PET_SHOO_KICK = 2.6  # 腻了甩你一下：上半身的横向冲量（px/tick）
+PET_COOL_TICKS = 600  # 腻了之后的冷却（15 秒），这段时间再摸没反应——等于躲开你

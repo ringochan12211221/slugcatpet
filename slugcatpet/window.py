@@ -779,6 +779,7 @@ class PetWindow(EffectsMixin, ItemHost, QWidget):
         for pet in self.pets:
             pet.step(cur, cycle_prog)
         self._tick_music_sway()
+        self._tick_petting(cur)
         self._plan_budget.run(self.pets)
 
         self._tick_items()
@@ -830,6 +831,117 @@ class PetWindow(EffectsMixin, ItemHost, QWidget):
             fsm = getattr(pet, "behavior", None)
             if fsm is not None:
                 fsm.cursor_break()
+
+    def _can_pet(self, pet) -> bool:
+        """能不能摸：只在站着发呆或趴着时受理。
+
+        走路、吃饭、睡觉、被你拎着、晕了、超度中都不受理——不打断任何行为，也不进物理。
+        """
+        if pet.hidden or pet.controlled:
+            return False
+        b = pet.body
+        if b.dead or b.stun > 0 or b.sleeping or b.zerog or b.swimming:
+            return False
+        fsm = pet.behavior
+        if fsm is None:
+            return False
+        if fsm.grab.active or fsm.blocks_interaction():
+            return False
+        if fsm.state not in ("IdleStand", "LieDown"):
+            return False
+        return not (b.is_moving() or b.move_dir != 0)
+
+    def _pet_fade(self, pet, want):
+        """享受强度淡入淡出；淡到看不见就归零，别留个尾巴一直晃。"""
+        b = pet.body
+        b.pet_joy += (want - b.pet_joy) * tuning.PET_EASE
+        if b.pet_joy < 0.004:
+            b.pet_joy = 0.0
+        elif b.pet_joy > 1.0:
+            b.pet_joy = 1.0
+
+    def _pet_reset(self, pet):
+        """重新起头：只清这一轮的计数，享受余韵（pet_bore）留着慢慢退。"""
+        pet.pet_dir = 0
+        pet.pet_run = 0.0
+        pet.pet_strokes = 0
+
+    def _pet_shoo(self, pet, cur):
+        """摸腻了：抖一下把你的手甩开、挪开一点、好感掉一点，再进冷却躲你一阵。"""
+        self._pet_reset(pet)
+        pet.pet_bore = 0
+        pet.pet_gain = 0.0
+        pet.pet_cool = int(tuning.PET_COOL_TICKS)
+        b = pet.body
+        b.temper_shift(tuning.PET_BORE_TEMPER)
+        away = -1.0 if cur[0] > b.chunk0.x else 1.0  # 往远离光标的方向甩
+        kick = tuning.PET_SHOO_KICK * (0.8 + 0.4 * pet._pet_rng.random())
+        b.chunk0.vx += away * kick
+        b.chunk0.vy -= kick * 0.35
+        pet.gfx.blink = max(pet.gfx.blink, 6)
+        self._pet_fade(pet, 0.0)
+
+    def _tick_petting(self, cur):
+        """被摸：光标在猫身上上下来回搓，搓够了就眯眼晃起来（享受）。
+
+        只认"往复"：一个方向滑够 PET_STROKE_MIN 再折返才算一下，这样路过蹭一下不会摇起来。
+        全程只在渲染层改姿态，不碰物理、不进 FSM。
+        """
+        if not tuning.PET_ON or cur is None or not self.pets:
+            return
+        y = cur[1]
+        prev = getattr(self, "_pet_prev_y", None)
+        self._pet_prev_y = y
+        dy = 0.0 if prev is None else y - prev
+        from .control.mouse import is_over
+
+        for pet in self.pets:
+            st = pet
+            if st.pet_cool > 0:
+                st.pet_cool -= 1
+            over = not pet.hidden and is_over(pet.body, pet.gfx, cur, pad=tuning.PET_PAD)
+            if not (over and self._can_pet(pet)) or st.pet_cool > 0:
+                st.pet_off += 1
+                if st.pet_off >= tuning.PET_TURN_GAP:
+                    self._pet_reset(pet)
+                # 不摸的时候余韵慢慢退：猫自己迈两步走开不该把之前的抚摸一笔勾销。
+                # 退到底了，这一轮的好感额度也还回来。
+                if st.pet_bore > 0:
+                    st.pet_bore = max(0, st.pet_bore - int(tuning.PET_BORE_DECAY))
+                    if st.pet_bore == 0:
+                        st.pet_gain = 0.0
+                self._pet_fade(pet, 0.0)
+                continue
+            if st.pet_off > 0:
+                # 刚回到猫身上：重新起头。不然光标从远处"跳"到猫身上那一下
+                # 会被当成一整趟来回（|dy| 很大且方向多半相反）。
+                st.pet_dir = 0
+                st.pet_run = 0.0
+            st.pet_off = 0
+            if abs(dy) > 0.05:
+                s = 1 if dy > 0 else -1
+                if st.pet_dir == 0 or s != st.pet_dir:
+                    # 折返：上一个方向滑够了才算完成一下，否则重新起头
+                    if st.pet_dir != 0 and st.pet_run >= tuning.PET_STROKE_MIN:
+                        st.pet_strokes += 1
+                    st.pet_dir = s
+                    st.pet_run = abs(dy)
+                else:
+                    st.pet_run += abs(dy)
+            if st.pet_strokes < tuning.PET_STROKES_NEED:
+                self._pet_fade(pet, 0.0)
+                continue
+            st.pet_bore += 1
+            if st.pet_bore >= tuning.PET_BORE_TICKS:
+                self._pet_shoo(pet, cur)
+                continue
+            if st.pet_bore % int(tuning.PET_TEMPER_EVERY) == 0 and st.pet_gain < tuning.PET_TEMPER_CAP:
+                pet.body.temper_shift(tuning.PET_TEMPER_GAIN)
+                st.pet_gain += tuning.PET_TEMPER_GAIN
+            if pet.gfx.blink < tuning.PET_BLINK:  # 眯着眼享受
+                pet.gfx.blink = tuning.PET_BLINK
+            self._pet_fade(pet, 1.0)
+            pet.body.pet_phase += tuning.PET_BPM / 60.0 / 40.0
 
     def _music_playing(self) -> bool:
         """有没有别的程序在放声音；检测不可用或没开时一律 False。"""

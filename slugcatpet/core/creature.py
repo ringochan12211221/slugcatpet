@@ -174,6 +174,11 @@ class SlugcatBody:
         self.groove_on = False  # 间歇：这一轮是"在摇"还是"歇一下"
         self.groove_left = 0  # 间歇：本轮还剩多少 tick
 
+        # 被摸（享受）：pet_joy 是 0~1 的强度，渲染层读它决定晃多少；不进物理。
+        # 和听歌摇摆分开：两套节奏和摆法不一样，被摸是慢慢晃重心 + 抬头眯眼。
+        self.pet_joy = 0.0
+        self.pet_phase = 0.0  # 享受摇晃的相位（tick）
+
         self.breath = 0.0
         self.last_breath = 0.0
         self.sleeping = False  # 睡眠态：呼吸周期恒 80

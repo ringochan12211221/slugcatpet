@@ -88,12 +88,26 @@ class GraphicsDrawMixin:
         return None
 
     def _music_sway(self, ts=1.0):
-        """听歌摇摆：返回 (躯干倾角, 重心左右移, 上下弹)，顺带把头的摆/点头存进 _sway_head_off。
+        """摇摆：返回 (躯干倾角, 重心左右移, 上下弹)，顺带把头的摆/点头存进 _sway_head_off。
 
-        倾角刻意收得很小：躯干静态歪着看着像驼背，不像在晃。主要是靠重心左右平移和
-        上下起伏做"跟着拍子"的感觉，头轻轻点。groove 是 0~1 的强度（已含用户幅度和
-        性格系数），0 时整体归零。
+        被摸（享受）优先于听歌，两套摆法分开：享受是慢悠悠地左右挪重心 + 微微仰头眯眼，
+        听歌是跟着拍子上下弹 + 点头。两者的倾角都刻意收得很小——躯干静态歪着看着像驼背，
+        不像在晃。强度都是 0~1，0 时整体归零。
         """
+        pj = getattr(self.body, "pet_joy", 0.0)
+        if pj > 0.0:
+            half = getattr(self.body, "pet_phase", 0.0) * math.pi
+            swing = math.sin(half)
+            bounce = math.sin(half * 2.0)
+            self._sway_head_off = (
+                swing * tuning.PET_HEAD_X * pj,
+                -tuning.PET_HEAD_LIFT * pj + bounce * 0.5 * pj,  # 负 y = 抬着头
+            )
+            return (
+                swing * tuning.PET_TILT_DEG * pj,
+                swing * tuning.PET_SHIFT_X * pj,
+                bounce * tuning.PET_SHIFT_Y * pj,
+            )
         g = getattr(self.body, "groove", 0.0)
         if g <= 0.0:
             self._sway_head_off = (0.0, 0.0)
