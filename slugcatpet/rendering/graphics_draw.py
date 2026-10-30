@@ -88,21 +88,28 @@ class GraphicsDrawMixin:
         return None
 
     def _music_sway(self, ts=1.0):
-        """听歌摇摆的躯干倾角（度）。顺带把头部的摆/点头存进 _sway_head_off。
+        """听歌摇摆：返回 (躯干倾角, 重心左右移, 上下弹)，顺带把头的摆/点头存进 _sway_head_off。
 
-        groove 是 0~1 的强度（已含用户幅度和性格系数），0 时整体归零，一点开销都没有。
-        读不到真实节拍，这里是固定拍子的正弦，只求观感像在跟着晃。
+        倾角刻意收得很小：躯干静态歪着看着像驼背，不像在晃。主要是靠重心左右平移和
+        上下起伏做"跟着拍子"的感觉，头轻轻点。groove 是 0~1 的强度（已含用户幅度和
+        性格系数），0 时整体归零。
         """
         g = getattr(self.body, "groove", 0.0)
         if g <= 0.0:
             self._sway_head_off = (0.0, 0.0)
-            return 0.0
-        swing = math.sin(getattr(self.body, "groove_phase", 0.0) * math.pi)
+            return 0.0, 0.0, 0.0
+        half = getattr(self.body, "groove_phase", 0.0) * math.pi  # 每拍 +π
+        swing = math.sin(half)  # 左右：两拍一个来回
+        bounce = math.sin(half * 2.0)  # 上下：每拍一次
         self._sway_head_off = (
             swing * tuning.MUSIC_SWAY_HEAD_X * g,
-            -abs(swing) * tuning.MUSIC_SWAY_HEAD_Y * g,
+            bounce * tuning.MUSIC_SWAY_HEAD_Y * g,
         )
-        return swing * tuning.MUSIC_SWAY_DEG * g
+        return (
+            swing * tuning.MUSIC_SWAY_DEG * g,
+            swing * tuning.MUSIC_SWAY_SHIFT_X * g,
+            bounce * tuning.MUSIC_SWAY_SHIFT_Y * g,
+        )
 
     def _draw_tail(self, p, ts=1.0, atlas=None):
         segs = self.tail_segs
@@ -304,9 +311,10 @@ class GraphicsDrawMixin:
         chest_y = draw0[1] + uy * chest_h
         self._breath_chest_off = (ux * chest_h, uy * chest_h)
         breath_bob = _lerp(0.5, 1.0, fatigue) * breath * (1.0 - upright)
-        body_x = chest_x
-        body_y = chest_y + 4.0 * sleep - breath_bob  # y↓ 睡眠下沉+起伏
-        body_rot = body_axis + self._music_sway(ts)
+        sway_deg, sway_dx, sway_dy = self._music_sway(ts)
+        body_x = chest_x + sway_dx
+        body_y = chest_y + 4.0 * sleep - breath_bob + sway_dy  # y↓ 睡眠下沉+起伏
+        body_rot = body_axis + sway_deg
         body_sx = self.body.stats.body_width + _lerp(_lerp(-0.05, 0.05, breath) * upright, 0.15, sleep)
         body_sy = 1.0  # 竖直呼吸走 body_y，不缩 Y
         side = self._motion_side(d0x, d0y, d1x, d1y)

@@ -285,9 +285,11 @@ CURSOR_SPEED_RELEASE = 12.0  # 光标平滑速度超过此（px/tick）算甩开
 # 所以按固定拍子走，观感上像在跟着晃。幅度再乘性格 activity。
 MUSIC_SWAY_ON = True
 MUSIC_SWAY_BPM = 96.0  # 固定拍子
-MUSIC_SWAY_DEG = 12.0  # 躯干左右最大倾角（度）
-MUSIC_SWAY_HEAD_X = 2.6  # 头跟着摆的横移（px）
-MUSIC_SWAY_HEAD_Y = 1.8  # 点头的上下幅度（px）
+MUSIC_SWAY_DEG = 3.5  # 躯干倾角（度）。别调大：静态歪着看着像驼背，不像在晃
+MUSIC_SWAY_SHIFT_X = 2.6  # 重心左右移（px）——摇摆主要靠这个
+MUSIC_SWAY_SHIFT_Y = 1.4  # 上下弹（px），每拍一次
+MUSIC_SWAY_HEAD_X = 1.8  # 头跟着摆的横移（px）
+MUSIC_SWAY_HEAD_Y = 1.2  # 点头的上下幅度（px）
 MUSIC_SWAY_ON_TICKS = (320, 480)  # 摇 8~12 秒（40 tick/s）
 MUSIC_SWAY_OFF_TICKS = (120, 200)  # 歇 3~5 秒
 MUSIC_SWAY_EASE = 0.045  # 淡入淡出：每 tick 向目标靠近的比例

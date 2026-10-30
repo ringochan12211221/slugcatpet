@@ -58,7 +58,10 @@ def step(win, kind):
     for o in kind.objects(win):
         st = o.state
         if st in RESTING:
-            homes[id(o)] = (o.x, o.y)
+            # 只认第一次落脚点：果子被猫摘走后掉在猫脚边，不能把"家"改写成那儿，
+            # 否则就不是原地再长，而是长在猫摘走它的地方了。
+            if id(o) not in homes:
+                homes[id(o)] = (o.x, o.y)
         elif st == ItemState.EATEN:
             pos = homes.pop(id(o), None)
             if pos is not None:
